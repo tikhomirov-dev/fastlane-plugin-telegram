@@ -6,10 +6,12 @@ module Fastlane
 
         token = params[:token]
         chat_id = params[:chat_id]
+        reply_to_message_id = params[:reply_to_message_id]
         text = params[:text]
         parse_mode = params[:parse_mode]
         file_path = params[:file]
         mime_type = params[:mime_type]
+        custom_bot_server = params[:custom_bot_server]
 
         file = nil
         if file_path != nil 
@@ -27,14 +29,19 @@ module Fastlane
         end
 
         method = (file == nil ? "sendMessage" : "sendDocument")
-        uri = URI.parse("https://api.telegram.org/bot#{token}/#{method}")
+        uri = URI.parse("#{custom_bot_server != nil ? custom_bot_server : "https://api.telegram.org"}/bot#{token}/#{method}")
         
         http = Net::HTTP.new(uri.host, uri.port)
         if params[:proxy]
           proxy_uri = URI.parse(params[:proxy])
           http = Net::HTTP.new(uri.host, uri.port, proxy_uri.host, proxy_uri.port, proxy_uri.user, proxy_uri.password)
         end
-        http.use_ssl = true
+
+        if custom_bot_server != nil 
+          http.use_ssl = custom_bot_server.start_with?("https")
+        else
+          http.use_ssl = true
+        end
 
         require 'net/http/post/multipart'
         text_parameter = (file == nil ? "text" : "caption")
@@ -43,7 +50,8 @@ module Fastlane
           "chat_id" => chat_id,
           text_parameter => text,
           "parse_mode" => parse_mode,
-          "document" => file
+          "document" => file,
+          "reply_to_message_id" => reply_to_message_id
         })
 
         response = http.request(request)
@@ -92,6 +100,11 @@ module Fastlane
                                          description: "Mime type of file to be sent",
                                              optional: true,
                                                  type: String),
+                   FastlaneCore::ConfigItem.new(key: :reply_to_message_id,
+                                           env_name: "TELEGRAM_REPLY_TO_MESSAGE_ID",
+                                         description: "Unique identifier of the target message",
+                                             optional: true,
+                                                 type: String),
                    FastlaneCore::ConfigItem.new(key: :parse_mode,
                                            env_name: "TELEGRAM_PARSE_MODE",
                                         description: "Param (Markdown / HTML) for using markdown or HTML support in message",
@@ -101,7 +114,12 @@ module Fastlane
                                            env_name: "TELEGRAM_PROXY",
                                         description: "Proxy URL to be used in network requests. Example: (https://123.45.67.89:80)",
                                            optional: true,
-                                               type: String)
+                                               type: String),
+                   FastlaneCore::ConfigItem.new(key: :custom_bot_server,
+                                           env_name: "TELEGRAM_CUSTOM_BOT_SERVER",
+                                        description: "Custom own server bot. Example: (http://123.45.67.89:8081)",
+                                            optional: true,
+                                                type: String)
                 ]
       end
 
